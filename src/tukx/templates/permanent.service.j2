@@ -1,0 +1,20 @@
+{% if description %}
+[Unit]
+Description={{ description }}
+{% endif %}
+
+[Service]
+Type=simple
+ExecStart={{ command }}
+User={{ user }}
+Group={{ group }}
+Restart={{ restart }}
+WorkingDirectory={{ working_directory }}
+{% if environment %}
+    {% for kvpair in environment %}
+Environment={{ kvpair }}
+    {% endfor %}
+{% endif %}
+
+[Install]
+WantedBy=multi-user.target
