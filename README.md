@@ -1,3 +1,15 @@
+# Tukx
+Run commands as systemd services.
+
+## Installation
+
+```
+git clone git@github.com:j-szulc/tukx.git && \
+cd tukx && \
+pip install .
+```
+
+## Usage
 
 ```
 $ tukx --help
@@ -31,7 +43,8 @@ Options:
   --help                        Show this message and exit.
 ```
 
-### Examples
+## Examples
+
 ```
 $ tukx --working-directory ~ -- echo hello world
 sudo tee <<EOF /etc/systemd/system/tukx-c8114a94-3442-4e60-af2c-c081ec5e7c63.service >/dev/null
