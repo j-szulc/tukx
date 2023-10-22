@@ -74,10 +74,17 @@ def fix_envlist(envlist):
             raise click.ClickException("Invalid environment variable value: {}".format(value))
         yield "{}={}".format(name, value)
 
+
+def inline_file(src_content, dst_path, sudo=False):
+    EOF = "EOF"
+    if EOF in src_content:
+        EOF = "EOF-{}".format(uuid.uuid4())
+    if EOF in src_content:
+        raise click.ClickException("EOF string found in source content")
+    return __jinja2_env.get_template(__templates["inline-file"]).render(dst_path=dst_path, src_content=src_content, EOF=EOF, sudo=sudo)
+
 @click.command()
-@click.option("--dry-run", is_flag=True, help="Only print generated command to stdout and nothing else.")
 @click.option("--verbose", is_flag=True, help="Enables verbose mode.")
-@click.option("--permanent/--transient", default=False, show_default=True, help="If transient, use systemd-run and remove the service after logout.")
 @click.option("--description", default=None)
 @click.option("--unit", default=None, help="Name of the service (Default: random)")
 @click.option("--user", help="Run service as user (Default: current user)")
@@ -89,7 +96,7 @@ def fix_envlist(envlist):
 @click.option("--shell", is_flag=True,  help="Run the command in a shell.")
 @click.option("--install/--dont-install", default=True, show_default=True, help="Install the service")
 @click.argument("command", nargs=-1)
-def main(dry_run, verbose, permanent, description, unit, user, group, restart, working_directory, environment, system_wide, shell, install, command):
+def main(verbose, description, unit, user, group, restart, working_directory, environment, system_wide, shell, install, command):
     """
     tukx - Run commands as systemd services
 
@@ -119,7 +126,6 @@ def main(dry_run, verbose, permanent, description, unit, user, group, restart, w
     if not command:
         raise click.ClickException("No command specified")
 
-    template_file = __templates["permanent"] if permanent else __templates["transient"]
     kwargs = {
         "description": description,
         "unit": unit,
@@ -131,7 +137,13 @@ def main(dry_run, verbose, permanent, description, unit, user, group, restart, w
         "restart": restart,
         "install": install,
     }
-    print(__jinja2_env.get_template(template_file).render(**kwargs))
+    service = __jinja2_env.get_template(__templates["permanent"]).render(**kwargs)
+    target_folder = "/etc/systemd/system" if system_wide else "/etc/systemd/user"
+    target_path = os.path.join(target_folder, "{}.service".format(unit))
+
+    cmd = inline_file(service, target_path, sudo=True)
+    print(cmd)
+    return service
 
 
 
