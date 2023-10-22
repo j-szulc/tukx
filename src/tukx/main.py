@@ -42,12 +42,12 @@ def setup_logging(loglevel):
     )
 
 
-def get_cmd_list(command, shell=False):
+def get_cmd_list(command, shell=None):
     command = [line.strip() for line in command.splitlines() if line.strip()]
     if not command:
         return []
     if shell:
-        return ["sh", "-c", " ; ".join(command)]
+        return [shell, "-c", " ; ".join(command)]
     if len(command) != 1:
         raise click.ClickException("Only one command can be specified when shell is disabled.")
     return shlex.split(command[0])
@@ -147,6 +147,11 @@ def main(verbose, remote, remote_root, description, unit, user, group, restart, 
         user = os.getlogin()
     if system_wide and not group:
         group = user
+
+    if shell and remote:
+        shell = "/bin/sh"
+    elif shell:
+        shell = "sh"
 
     environment = fix_envlist(environment)
 
