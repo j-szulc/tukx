@@ -33,7 +33,8 @@ Options:
 
 ### Examples
 ```
-$ sudo tee <<EOF /etc/systemd/system/tukx-c8114a94-3442-4e60-af2c-c081ec5e7c63.service >/dev/null
+$ tukx --working-directory ~ -- echo hello world
+sudo tee <<EOF /etc/systemd/system/tukx-c8114a94-3442-4e60-af2c-c081ec5e7c63.service >/dev/null
 
 [Service]
 Type=simple
