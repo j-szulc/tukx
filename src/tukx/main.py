@@ -81,25 +81,31 @@ def inline_file(src_content, dst_path, sudo=False):
         EOF = "EOF-{}".format(uuid.uuid4())
     if EOF in src_content:
         raise click.ClickException("EOF string found in source content")
-    return __jinja2_env.get_template(__templates["inline-file"]).render(dst_path=dst_path, src_content=src_content, EOF=EOF, sudo=sudo)
+    return __jinja2_env.get_template(__templates["inline-file"]).render(dst_path=dst_path, src_content=src_content,
+                                                                        EOF=EOF, sudo=sudo)
+
 
 @click.command()
 @click.option("--verbose", is_flag=True, help="Enables verbose mode.")
 @click.option("--remote", is_flag=True, help="Allows specifying paths, users, groups not existent on this device.")
-@click.option("--remote-root", is_flag=True, help="Shortcut for --remote --working-directory /root --user root --group root")
+@click.option("--remote-root", is_flag=True,
+              help="Shortcut for --remote --working-directory /root --user root --group root")
 @click.option("--description", default=None)
 @click.option("--unit", default=None, help="Name of the service [default: random]")
 @click.option("--user", help="Run service as user [default: current user]")
 @click.option("--group", help="Run service as group [default: current user's group]")
 @click.option("--restart", default="no", show_default=True, help="Restart policy")
-@click.option("--working-directory", default=None, help="Working directory [default: current directory or home if --remote]")
+@click.option("--working-directory", default=None,
+              help="Working directory [default: current directory or home if --remote]")
 @click.option("--environment", "-E", default=[], multiple=True, help="Environment variables", metavar="NAME=VALUE")
-@click.option("--system-wide/--user-wide", default=True, show_default=True, help="Install service system-wide or user-wide")
-@click.option("--shell", is_flag=True,  help="Run the command in a shell.")
+@click.option("--system-wide/--user-wide", default=True, show_default=True,
+              help="Install service system-wide or user-wide")
+@click.option("--shell", is_flag=True, help="Run the command in a shell.")
 @click.option("--install/--dont-install", default=True, show_default=True, help="Install the service")
 @click.option("--now", is_flag=True, help="Add a command to start the service and view status")
 @click.argument("command", nargs=-1)
-def main(verbose, remote, remote_root, description, unit, user, group, restart, working_directory, environment, system_wide, shell, install, now, command):
+def main(verbose, remote, remote_root, description, unit, user, group, restart, working_directory, environment,
+         system_wide, shell, install, now, command):
     """
     tukx - Run commands as systemd services
 
@@ -107,36 +113,43 @@ def main(verbose, remote, remote_root, description, unit, user, group, restart, 
               If not specified, the command will be read from stdin.
               Press Ctrl+D to finish input.
     """
-    if remote_root:
-        if user or group or working_directory:
-            raise click.ClickException("Cannot specify --remote-root and --user/--group/--working-directory")
-        remote = True
-        working_directory = "/root"
-        user = "root"
-        group = "root"
-    unit="tukx-{}".format(uuid.uuid4()) if unit is None else unit
     if verbose:
         setup_logging(logging.DEBUG)
-    if remote and not working_directory:
-        working_directory = "%h"
-    if remote and not user and system_wide:
+
+    if remote_root and (user or group or working_directory):
+        raise click.ClickException("Cannot specify --remote-root and --user/--group/--working-directory")
+    if remote and system_wide and not user:
         raise click.ClickException("User is required when --remote and --system-wide are specified")
-    if remote and not group and system_wide:
+    if remote and system_wide and not group:
         raise click.ClickException("Group is required when --remote and --system-wide are specified")
     if not system_wide and user:
         raise click.ClickException("If --user-wide specified then --user is unneccesary")
     if not system_wide and group:
         raise click.ClickException("If --user-wide specified then --group is unneccesary")
-    working_directory = working_directory if working_directory is not None else "."
+
+    if remote_root:
+        remote = True
+        working_directory = "/root"
+        user = "root"
+        group = "root"
+    if remote and not working_directory:
+        working_directory = "%h"
+    if not working_directory:
+        working_directory = "."
     if not remote:
         working_directory = os.path.abspath(working_directory)
         if not os.path.isdir(working_directory):
             raise click.ClickException("Working directory '{}' does not exist".format(working_directory))
-    if not remote and user is None:
+
+    unit = "tukx-{}".format(uuid.uuid4()) if unit is None else unit
+
+    if system_wide and not user:
         user = os.getlogin()
-    if not remote and group is None:
+    if system_wide and not group:
         group = user
+
     environment = fix_envlist(environment)
+
     if not command:
         print("Enter command to run as a service. Press Ctrl+D to finish input.", file=sys.stderr)
         command = sys.stdin.read()
@@ -150,6 +163,7 @@ def main(verbose, remote, remote_root, description, unit, user, group, restart, 
     if not os.path.isabs(command[0]):
         raise click.ClickException("Command '{}' is not an absolute path".format(command[0]))
     command = shlex.join(command)
+
     kwargs = {
         "description": description,
         "unit": unit,
@@ -172,7 +186,6 @@ def main(verbose, remote, remote_root, description, unit, user, group, restart, 
         for sctl_cmd in ["start", "status"]:
             print(f"{systemctl} {sctl_cmd} {unit}")
     return service
-
 
 if __name__ == '__main__':
     main()
