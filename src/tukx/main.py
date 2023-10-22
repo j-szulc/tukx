@@ -75,7 +75,7 @@ def inline_file(src_content, dst_path, sudo=False):
         EOF = "EOF-{}".format(uuid.uuid4())
     if EOF in src_content:
         raise click.ClickException("EOF string found in source content")
-    return __jinja2_env.get_template("inline-file").render(dst_path=dst_path, src_content=src_content,
+    return __jinja2_env.get_template("inline-file.sh.j2").render(dst_path=dst_path, src_content=src_content,
                                                                         EOF=EOF, sudo=sudo)
 
 
@@ -115,15 +115,14 @@ def main(verbose, description, unit, user, group, restart, working_directory, en
     if enable and not unit:
         raise click.ClickException("--enable requires unit name (set with --unit)")
 
-    if not user:
+    if system_wide and not user:
         user = os.getlogin()
-    if not group:
+    if system_wide and not group:
         group = user
     if not working_directory:
         working_directory = "~"
     elif working_directory.strip() == ".":
         working_directory = os.getcwd()
-    working_directory = os.path.abspath(working_directory)
     working_directory = working_directory.replace("~", "%h")
 
     if not unit:
@@ -147,10 +146,14 @@ def main(verbose, description, unit, user, group, restart, working_directory, en
         install=install,
     )
 
+    target_folder = "/etc/systemd/system" if system_wide else "/etc/systemd/user"
+    target_path = os.path.join(target_folder, "{}.service".format(unit))
+    service_command = inline_file(service, target_path, sudo=True)
+
     result = __jinja2_env.get_template("result.sh.j2").render(
         unit=unit,
         system_wide=system_wide,
-        service=service,
+        service_command=service_command,
         enable=enable,
         now=now,
         replace=replace,

@@ -1,7 +1,6 @@
 {% set systemctl = "sudo systemctl" if system_wide else "systemctl --user" %}
 {% set journalctl = "journalctl" if system_wide else "journalctl --user" %}
-{% set target_folder = "/etc/systemd/system" if system_wide else "/etc/systemd/user" %}
-{% set target_path = os.path.join(target_folder, "{}.service".format(unit)) %}
+
 #!/bin/sh
 hishtory disable || true
 {# Commands are prepended with spaces to prevent spamming history #}
@@ -12,6 +11,7 @@ hishtory disable || true
  rm -f {{ target_path }} || true
  {{ systemctl }} daemon-reload
 {% endif %}
+{{ service_command }}
 {% if enable %}
 {# Not using enable --now, less cases to consider #}
  {{ systemctl }} enable {{ unit }}
