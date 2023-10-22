@@ -188,8 +188,10 @@ def main(verbose, remote, remote_root, description, unit, user, group, restart, 
 
     systemctl = "sudo systemctl" if system_wide else "systemctl --user"
     if replace:
+        print(f"{systemctl} reset-failed {unit} || true")
         print(f"{systemctl} disable --now {unit} || true")
         print(f"rm -rf {target_path} || true")
+        print(f"{systemctl} daemon-reload")
 
     cmd = inline_file(service, target_path, sudo=True)
     print(cmd)
