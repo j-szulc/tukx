@@ -102,11 +102,12 @@ def inline_file(src_content, dst_path, sudo=False):
               help="Install service system-wide or user-wide")
 @click.option("--shell", is_flag=True, help="Run the command in a shell.")
 @click.option("--install/--dont-install", default=True, show_default=True, help="Install the service")
+@click.option("--replace", is_flag=True, help="Replace existing service, if exists.")
 @click.option("--enable", is_flag=True, help="Add a command to enable the service")
 @click.option("--now", is_flag=True, help="Add a command to start the service and view status")
 @click.argument("command", nargs=-1)
 def main(verbose, remote, remote_root, description, unit, user, group, restart, working_directory, environment,
-         system_wide, shell, install, enable, now, command):
+         system_wide, shell, install, replace, enable, now, command):
     """
     tukx - Run commands as systemd services. If not specified, the command will be read from stdin. Press Ctrl+D to finish input.
     """
@@ -184,6 +185,12 @@ def main(verbose, remote, remote_root, description, unit, user, group, restart, 
     target_folder = "/etc/systemd/system" if system_wide else "/etc/systemd/user"
     target_path = os.path.join(target_folder, "{}.service".format(unit))
 
+
+    systemctl = "sudo systemctl" if system_wide else "systemctl --user"
+    if replace:
+        print(f"{systemctl} disable --now {unit} || true")
+        print(f"rm -rf {target_path} || true")
+
     cmd = inline_file(service, target_path, sudo=True)
     print(cmd)
 
@@ -196,7 +203,6 @@ def main(verbose, remote, remote_root, description, unit, user, group, restart, 
         sctl_cmds.append("enable")
     if now:
         sctl_cmds.append("status --lines=0")
-    systemctl = "sudo systemctl" if system_wide else "systemctl --user"
     for sctl_cmd in sctl_cmds:
         print(f"{systemctl} {sctl_cmd} {unit}")
 
