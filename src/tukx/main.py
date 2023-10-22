@@ -79,7 +79,11 @@ def inline_file(src_content, dst_path, sudo=False):
                                                                         EOF=EOF, sudo=sudo)
 
 
-@click.command()
+@click.group()
+def cli():
+    pass
+
+@cli.command("gen")
 @click.option("--verbose", is_flag=True, help="Enables verbose mode.")
 @click.option("--description", default=None)
 @click.option("--unit", "-n", default=None, help="Name of the service [default: random]")
@@ -96,10 +100,10 @@ def inline_file(src_content, dst_path, sudo=False):
 @click.option("--replace", is_flag=True, help="Replace existing service, if exists.")
 @click.option("--enable", is_flag=True, help="Add a command to enable the service")
 @click.option("--now", is_flag=True, help="Add a command to start the service and view status")
-def main(verbose, description, unit, user, group, restart, working_directory, environment,
+def tukx_gen(verbose, description, unit, user, group, restart, working_directory, environment,
          system_wide, shell, install, replace, enable, now):
     """
-    tukx - Run commands as systemd services. Command will be read from stdin. Press Ctrl+D to finish input.
+    Generate a systemd service file.
     """
     if verbose:
         setup_logging(logging.DEBUG)
@@ -165,5 +169,21 @@ def main(verbose, description, unit, user, group, restart, working_directory, en
     return service
 
 
+@cli.command("del")
+@click.argument("unit")
+def tukx_del(unit):
+    """
+    Delete a systemd service file.
+    """
+    result = __jinja2_env.get_template("delete.sh.j2").render({
+        "unit": unit,
+        "os": os,
+        "zip": zip
+    })
+    copy(result)
+    print(result)
+    return result
+
+
 if __name__ == '__main__':
-    main()
+    cli()

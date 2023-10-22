@@ -17,5 +17,8 @@ finally:
 
 from . import main as __main
 
-tukx = __main.main
+tukx_gen = __main.tukx_gen
 inline_file = __main.inline_file
+tukx_del = __main.tukx_del
+
+__all__ = ["tukx_gen", "inline_file", "tukx_del"]
