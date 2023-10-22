@@ -6,8 +6,12 @@ Description={{ description }}
 [Service]
 Type=simple
 ExecStart={{ command }}
+{% if user %}
 User={{ user }}
+{% endif %}
+{% if group %}
 Group={{ group }}
+{% endif %}
 Restart={{ restart }}
 WorkingDirectory={{ working_directory }}
 {% if environment %}
