@@ -102,10 +102,11 @@ def inline_file(src_content, dst_path, sudo=False):
               help="Install service system-wide or user-wide")
 @click.option("--shell", is_flag=True, help="Run the command in a shell.")
 @click.option("--install/--dont-install", default=True, show_default=True, help="Install the service")
+@click.option("--enable", is_flag=True, help="Add a command to enable the service")
 @click.option("--now", is_flag=True, help="Add a command to start the service and view status")
 @click.argument("command", nargs=-1)
 def main(verbose, remote, remote_root, description, unit, user, group, restart, working_directory, environment,
-         system_wide, shell, install, now, command):
+         system_wide, shell, install, enable, now, command):
     """
     tukx - Run commands as systemd services
 
@@ -126,6 +127,8 @@ def main(verbose, remote, remote_root, description, unit, user, group, restart, 
         raise click.ClickException("If --user-wide specified then --user is unneccesary")
     if not system_wide and group:
         raise click.ClickException("If --user-wide specified then --group is unneccesary")
+    if enable and not install:
+        raise click.ClickException("--enable requires --install")
 
     if remote_root:
         remote = True
@@ -182,10 +185,17 @@ def main(verbose, remote, remote_root, description, unit, user, group, restart, 
 
     cmd = inline_file(service, target_path, sudo=True)
     print(cmd)
-    if now:
-        systemctl = "sudo systemctl" if system_wide else "systemctl --user"
-        for sctl_cmd in ["start", "status"]:
-            print(f"{systemctl} {sctl_cmd} {unit}")
+    sctl_cmds = ["daemon-reload"]
+
+    if now and enable:
+        sctl_cmds.append("enable --now")
+    elif now:
+        sctl_cmds.append("start")
+    elif enable:
+        sctl_cmds.append("enable")
+    systemctl = "sudo systemctl" if system_wide else "systemctl --user"
+    for sctl_cmd in sctl_cmds:
+        print(f"{systemctl} {sctl_cmd} {unit}")
     return service
 
 if __name__ == '__main__':

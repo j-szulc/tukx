@@ -20,5 +20,7 @@ Environment={{ kvpair }}
     {% endfor %}
 {% endif %}
 
+{% if install %}
 [Install]
 WantedBy=multi-user.target
+{% endif %}
