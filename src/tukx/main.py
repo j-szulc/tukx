@@ -181,14 +181,16 @@ def main(verbose, remote, remote_root, description, unit, user, group, restart, 
 
     cmd = inline_file(service, target_path, sudo=True)
     print(cmd)
-    sctl_cmds = ["daemon-reload"]
 
+    sctl_cmds = []
     if now and enable:
         sctl_cmds.append("enable --now")
     elif now:
         sctl_cmds.append("start")
     elif enable:
         sctl_cmds.append("enable")
+    if now:
+        sctl_cmds.append("status --lines=0")
     systemctl = "sudo systemctl" if system_wide else "systemctl --user"
     for sctl_cmd in sctl_cmds:
         print(f"{systemctl} {sctl_cmd} {unit}")
