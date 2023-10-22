@@ -1,0 +1,23 @@
+{% set systemctl = "sudo systemctl" if system_wide else "systemctl --user" %}
+{% set journalctl = "journalctl" if system_wide else "journalctl --user" %}
+{% set target_folder = "/etc/systemd/system" if system_wide else "/etc/systemd/user" %}
+{% set target_path = os.path.join(target_folder, "{}.service".format(unit)) %}
+#!/bin/sh
+hishtory disable || true
+{# Commands are prepended with spaces to prevent spamming history #}
+{% if replace %}
+ {{ systemctl }} reset-failed || true
+ {{ systemctl }} stop {{ unit }} || true
+ {{ systemctl }} disable {{ unit }} || true
+ rm -f {{ target_path }} || true
+ {{ systemctl }} daemon-reload
+{% endif %}
+{% if enable %}
+{# Not using enable --now, less cases to consider #}
+ {{ systemctl }} enable {{ unit }}
+{% endif %}
+{% if now %}
+ {{ systemctl }} start {{ unit }}
+ {{ systemctl }} status --lines=0 {{ unit }}
+ {{ journalctl }} -f -u {{ unit }}
+{% endif %}

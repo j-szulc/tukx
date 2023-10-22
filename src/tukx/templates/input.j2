@@ -1,0 +1,10 @@
+{% if prompt_above %}
+{{ prompt_above }}
+{{ separator_above }}
+{% endif %}
+{{ default_input }}
+{% if prompt_below %}
+### Everything below, including this line, will be discarded.
+{{ separator_below }}
+{{ prompt_below }}
+{% endif %}

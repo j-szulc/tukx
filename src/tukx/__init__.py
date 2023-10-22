@@ -14,3 +14,8 @@ except PackageNotFoundError:  # pragma: no cover
     __version__ = "unknown"
 finally:
     del version, PackageNotFoundError
+
+from . import main as __main
+
+tukx = __main.main
+inline_file = __main.inline_file

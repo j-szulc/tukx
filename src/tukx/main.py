@@ -3,11 +3,15 @@ import sys
 import uuid
 import os
 import shlex
-import shutil
 import pathlib
 import jinja2
-
 import click
+
+try:
+    import pyperclip
+    copy = pyperclip.copy
+except ImportError:
+    copy = lambda *_: None
 
 from tukx import __version__
 
@@ -24,12 +28,6 @@ __jinja2_env = jinja2.Environment(
     trim_blocks=True
 )
 
-__templates = {
-    "permanent": "permanent.service.j2",
-    "inline-file": "inline-file.sh.j2",
-}
-
-
 def setup_logging(loglevel):
     """Setup basic logging
 
@@ -41,26 +39,22 @@ def setup_logging(loglevel):
         level=loglevel, stream=sys.stdout, format=logformat, datefmt="%Y-%m-%d %H:%M:%S"
     )
 
+def parse_command_input(command_input, shell=False):
+    command_input = [line for line in command_input.splitlines() if line.strip()]
+    if not command_input:
+        return ""
+    if len(command_input) > 1 and not shell:
+        raise click.ClickException("No-shell mode requires a single command")
 
-def get_cmd_list(command, shell=None):
-    command = [line.strip() for line in command.splitlines() if line.strip()]
-    if not command:
-        return []
-    if shell:
-        return [shell, "-c", " ; ".join(command)]
-    if len(command) != 1:
-        raise click.ClickException("Only one command can be specified when shell is disabled.")
-    return shlex.split(command[0])
+    get_exec = lambda line: shlex.split(line)[0]
+    command_input = [line.replace(get_exec(line),r"$(which "+get_exec(line)+")",1) for line in command_input]
 
+    if not shell:
+        return command_input[0]
 
-def fix_exec_path(cmd_list):
-    if not cmd_list:
-        return []
-    if shutil.which(cmd_list[0]) is None:
-        raise click.ClickException("Command '{}' not found in PATH".format(cmd_list[0]))
-    cmd_list[0] = shutil.which(cmd_list[0])
-    return cmd_list
-
+    command_input = "\n".join(command_input)
+    result = shlex.join(["/REPLACE/ME", "-c", command_input])
+    return result.replace("/REPLACE/ME", r"$(which sh)")
 
 def fix_envlist(envlist):
     for arg in envlist:
@@ -81,138 +75,92 @@ def inline_file(src_content, dst_path, sudo=False):
         EOF = "EOF-{}".format(uuid.uuid4())
     if EOF in src_content:
         raise click.ClickException("EOF string found in source content")
-    return __jinja2_env.get_template(__templates["inline-file"]).render(dst_path=dst_path, src_content=src_content,
+    return __jinja2_env.get_template("inline-file").render(dst_path=dst_path, src_content=src_content,
                                                                         EOF=EOF, sudo=sudo)
 
 
 @click.command()
 @click.option("--verbose", is_flag=True, help="Enables verbose mode.")
-@click.option("--remote", is_flag=True, help="Allows specifying paths, users, groups not existent on this device.")
-@click.option("--remote-root", is_flag=True,
-              help="Shortcut for --remote --working-directory /root --user root --group root")
 @click.option("--description", default=None)
-@click.option("--unit", default=None, help="Name of the service [default: random]")
+@click.option("--unit", "-n", default=None, help="Name of the service [default: random]")
 @click.option("--user", help="Run service as user [default: current user]")
 @click.option("--group", help="Run service as group [default: equal to --user]")
 @click.option("--restart", default="no", show_default=True, help="Restart policy")
 @click.option("--working-directory", default=None,
-              help="Working directory [default: current directory or home if --remote]")
+              help="Working directory [default: home]")
 @click.option("--environment", "-E", default=[], multiple=True, help="Environment variables", metavar="NAME=VALUE")
 @click.option("--system-wide/--user-wide", default=True, show_default=True,
               help="Install service system-wide or user-wide")
-@click.option("--shell", is_flag=True, help="Run the command in a shell.")
+@click.option("--shell/--no-shell", default=False, show_default=True, help="Run command in shell.")
 @click.option("--install/--dont-install", default=True, show_default=True, help="Install the service")
 @click.option("--replace", is_flag=True, help="Replace existing service, if exists.")
 @click.option("--enable", is_flag=True, help="Add a command to enable the service")
 @click.option("--now", is_flag=True, help="Add a command to start the service and view status")
-@click.argument("command", nargs=-1)
-def main(verbose, remote, remote_root, description, unit, user, group, restart, working_directory, environment,
-         system_wide, shell, install, replace, enable, now, command):
+def main(verbose, description, unit, user, group, restart, working_directory, environment,
+         system_wide, shell, install, replace, enable, now):
     """
-    tukx - Run commands as systemd services. If not specified, the command will be read from stdin. Press Ctrl+D to finish input.
+    tukx - Run commands as systemd services. Command will be read from stdin. Press Ctrl+D to finish input.
     """
     if verbose:
         setup_logging(logging.DEBUG)
+    else:
+        setup_logging(logging.WARNING)
 
-    if remote_root and (user or group or working_directory):
-        raise click.ClickException("Cannot specify --remote-root and --user/--group/--working-directory")
-    if remote and system_wide and not user:
-        raise click.ClickException("User is required when --remote and --system-wide are specified")
-    if remote and system_wide and not group:
-        raise click.ClickException("Group is required when --remote and --system-wide are specified")
     if not system_wide and user:
         raise click.ClickException("If --user-wide specified then --user is unneccesary")
     if not system_wide and group:
         raise click.ClickException("If --user-wide specified then --group is unneccesary")
     if enable and not install:
         raise click.ClickException("--enable requires --install")
+    if enable and not unit:
+        raise click.ClickException("--enable requires unit name (set with --unit)")
 
-    if remote_root:
-        remote = True
-        working_directory = "/root"
-        user = "root"
-        group = "root"
-    if remote and not working_directory:
-        working_directory = "%h"
+    if not user:
+        user = os.getlogin()
+    if not group:
+        group = user
     if not working_directory:
-        working_directory = "."
-    if not remote:
-        working_directory = os.path.abspath(working_directory)
-        if not os.path.isdir(working_directory):
-            raise click.ClickException("Working directory '{}' does not exist".format(working_directory))
+        working_directory = "~"
+    elif working_directory.strip() == ".":
+        working_directory = os.getcwd()
+    working_directory = os.path.abspath(working_directory)
+    working_directory = working_directory.replace("~", "%h")
 
     if not unit:
-        unit = "tukx-{}".format(uuid.uuid4())
-
-    if system_wide and not user:
-        user = os.getlogin()
-    if system_wide and not group:
-        group = user
-
-    if shell and remote:
-        shell = "/bin/sh"
-    elif shell:
-        shell = "sh"
+        unit = "tukx-temp-{}".format(uuid.uuid4())
 
     environment = fix_envlist(environment)
 
-    if not command:
-        print("Enter command to run as a service. Press Ctrl+D to finish input.", file=sys.stderr)
-        command = sys.stdin.read()
-    if isinstance(command, tuple):
-        command = " ".join(command)
-    command = get_cmd_list(command, shell)
-    if not command:
+    command = parse_command_input(click.edit(), shell).replace("\n", "\\\n")
+    if command is None:
         raise click.ClickException("No command specified")
-    if not remote:
-        command = fix_exec_path(command)
-    if not os.path.isabs(command[0]):
-        raise click.ClickException("Command '{}' is not an absolute path".format(command[0]))
-    command = shlex.join(command)
 
-    kwargs = {
-        "description": description,
-        "unit": unit,
-        "user": user,
-        "group": group,
-        "working_directory": working_directory,
-        "environment": environment,
-        "command": command,
-        "restart": restart,
-        "install": install,
-    }
-    service = __jinja2_env.get_template(__templates["permanent"]).render(**kwargs)
-    target_folder = "/etc/systemd/system" if system_wide else "/etc/systemd/user"
-    target_path = os.path.join(target_folder, "{}.service".format(unit))
+    service = __jinja2_env.get_template("permanent.service.j2").render(
+        description=description,
+        unit=unit,
+        user=user,
+        group=group,
+        working_directory=working_directory,
+        environment=environment,
+        command=command,
+        restart=restart,
+        install=install,
+    )
 
+    result = __jinja2_env.get_template("result.sh.j2").render(
+        unit=unit,
+        system_wide=system_wide,
+        service=service,
+        enable=enable,
+        now=now,
+        replace=replace,
+    )
 
-    systemctl = "sudo systemctl" if system_wide else "systemctl --user"
-    if replace:
-        print(f"{systemctl} reset-failed {unit} || true")
-        print(f"{systemctl} disable --now {unit} || true")
-        print(f"rm -rf {target_path} || true")
-        print(f"{systemctl} daemon-reload")
-
-    cmd = inline_file(service, target_path, sudo=True)
-    print(cmd)
-
-    sctl_cmds = []
-    if now and enable:
-        sctl_cmds.append("enable --now")
-    elif now:
-        sctl_cmds.append("start")
-    elif enable:
-        sctl_cmds.append("enable")
-    if now:
-        sctl_cmds.append("status --lines=0")
-    for sctl_cmd in sctl_cmds:
-        print(f"{systemctl} {sctl_cmd} {unit}")
-
-    journalctl = "journalctl" if system_wide else "journalctl --user"
-    if now:
-        print(f"{journalctl} -u {unit} -f")
+    copy(result)
+    print(result)
 
     return service
+
 
 if __name__ == '__main__':
     main()
