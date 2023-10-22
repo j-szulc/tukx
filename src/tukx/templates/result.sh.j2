@@ -2,8 +2,8 @@
 {% set journalctl = "journalctl" if system_wide else "journalctl --user" %}
 
 #!/bin/sh
-hishtory disable || true
 {# Commands are prepended with spaces to prevent spamming history #}
+ hishtory disable || true
 {% if replace %}
  {{ systemctl }} reset-failed || true
  {{ systemctl }} stop {{ unit }} || true
@@ -21,3 +21,4 @@ hishtory disable || true
  {{ systemctl }} status --lines=0 {{ unit }}
  {{ journalctl }} -f -u {{ unit }}
 {% endif %}
+ hishtory enable || true

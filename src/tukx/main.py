@@ -126,9 +126,10 @@ def tukx_gen(verbose, description, unit, user, group, restart, working_directory
     if system_wide and not group:
         group = user
     if not working_directory:
-        working_directory = "~"
+        working_directory = "%h"
+    working_directory = working_directory.replace("~", "%h")
     # https://superuser.com/a/484330
-    working_directory = working_directory.replace("~", r'$(getent passwd ' + user + ' | cut -d: -f6)')
+    working_directory = working_directory.replace("%h", r'$(getent passwd ' + user + ' | cut -d: -f6)')
 
     if not unit:
         unit = "tukx-temp-{}".format(uuid.uuid4())

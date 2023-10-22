@@ -1,8 +1,8 @@
 {% set systemctls = ["sudo systemctl", "systemctl --user"] %}
 {% set target_folders = ["/etc/systemd/system", "/etc/systemd/user"] %}
 #!/bin/sh
-hishtory disable || true
 {# Commands are prepended with spaces to prevent spamming history #}
+ hishtory disable || true
 {% for (systemctl, target_folder) in zip(systemctls, target_folders) %}
  {{ systemctl }} reset-failed || true
  {{ systemctl }} stop {{ unit }} || true
@@ -10,4 +10,4 @@ hishtory disable || true
  sudo rm -f {{ os.path.join(target_folder, unit + ".service") }} || true
  {{ systemctl }} daemon-reload
 {% endfor %}
-hishtory enable || true
+ hishtory enable || true
