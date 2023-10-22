@@ -93,7 +93,7 @@ def inline_file(src_content, dst_path, sudo=False):
 @click.option("--description", default=None)
 @click.option("--unit", default=None, help="Name of the service [default: random]")
 @click.option("--user", help="Run service as user [default: current user]")
-@click.option("--group", help="Run service as group [default: current user's group]")
+@click.option("--group", help="Run service as group [default: equal to --user]")
 @click.option("--restart", default="no", show_default=True, help="Restart policy")
 @click.option("--working-directory", default=None,
               help="Working directory [default: current directory or home if --remote]")
@@ -108,11 +108,7 @@ def inline_file(src_content, dst_path, sudo=False):
 def main(verbose, remote, remote_root, description, unit, user, group, restart, working_directory, environment,
          system_wide, shell, install, enable, now, command):
     """
-    tukx - Run commands as systemd services
-
-    COMMAND - Command to run as a service.
-              If not specified, the command will be read from stdin.
-              Press Ctrl+D to finish input.
+    tukx - Run commands as systemd services. If not specified, the command will be read from stdin. Press Ctrl+D to finish input.
     """
     if verbose:
         setup_logging(logging.DEBUG)
@@ -196,6 +192,11 @@ def main(verbose, remote, remote_root, description, unit, user, group, restart, 
     systemctl = "sudo systemctl" if system_wide else "systemctl --user"
     for sctl_cmd in sctl_cmds:
         print(f"{systemctl} {sctl_cmd} {unit}")
+
+    journalctl = "journalctl" if system_wide else "journalctl --user"
+    if now:
+        print(f"{journalctl} -u {unit} -f")
+
     return service
 
 if __name__ == '__main__':
