@@ -141,7 +141,8 @@ def main(verbose, remote, remote_root, description, unit, user, group, restart, 
         if not os.path.isdir(working_directory):
             raise click.ClickException("Working directory '{}' does not exist".format(working_directory))
 
-    unit = "tukx-{}".format(uuid.uuid4()) if unit is None else unit
+    if not unit:
+        unit = "tukx-{}".format(uuid.uuid4())
 
     if system_wide and not user:
         user = os.getlogin()
