@@ -6,6 +6,14 @@ Description={{ description }}
 [Service]
 Type=simple
 ExecStart={{ command }}
+{% set after_str = " ".join(after) %}
+{% if after_str %}
+After={{ after_str }}
+{% endif %}
+{% set before_str = " ".join(before) %}
+{% if before_str %}
+Before={{ before_str }}
+{% endif %}
 {% if user %}
 User={{ user }}
 {% endif %}

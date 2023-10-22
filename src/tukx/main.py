@@ -100,8 +100,10 @@ def cli():
 @click.option("--replace", is_flag=True, help="Replace existing service, if exists.")
 @click.option("--enable", is_flag=True, help="Add a command to enable the service")
 @click.option("--now", is_flag=True, help="Add a command to start the service and view status")
+@click.option("--after", multiple=True, help="Run currently generated service only after specified units")
+@click.option("--before", multiple=True, help="Run currently generated service only before specified units")
 def tukx_gen(verbose, description, unit, user, group, restart, working_directory, environment,
-         system_wide, shell, install, replace, enable, now):
+         system_wide, shell, install, replace, enable, now, after, before):
     """
     Generate a systemd service file.
     """
@@ -148,6 +150,8 @@ def tukx_gen(verbose, description, unit, user, group, restart, working_directory
         command=command,
         restart=restart,
         install=install,
+        after=after,
+        before=before,
     )
 
     target_folder = "/etc/systemd/system" if system_wide else "/etc/systemd/user"
