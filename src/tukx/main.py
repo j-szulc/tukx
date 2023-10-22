@@ -52,7 +52,7 @@ def parse_command_input(command_input, shell=False):
     if not shell:
         return command_input[0]
 
-    command_input = "\n".join(command_input)
+    command_input = ";\n".join(command_input)
     result = shlex.join(["/REPLACE/ME", "-c", command_input])
     return result.replace("/REPLACE/ME", r"$(which sh)")
 
@@ -127,9 +127,8 @@ def tukx_gen(verbose, description, unit, user, group, restart, working_directory
         group = user
     if not working_directory:
         working_directory = "~"
-    elif working_directory.strip() == ".":
-        working_directory = os.getcwd()
-    working_directory = working_directory.replace("~", "%h")
+    # https://superuser.com/a/484330
+    working_directory = working_directory.replace("~", r'$(getent passwd ' + user + ' | cut -d: -f6)')
 
     if not unit:
         unit = "tukx-temp-{}".format(uuid.uuid4())
